@@ -37,7 +37,6 @@ async function main() {
 
 
     if(isHash('#/login')){
-        console.log(33)
         // 登录同意
         findDom(()=>$(':has(>[aria-label="用户须知"])')?.style.display==='' && $$('[aria-label="用户须知"] span').find(dom=>dom.innerText === '同意'))
 
@@ -48,7 +47,23 @@ async function main() {
 
 
     if(isHash('#/contractMsg/sendTolist')){
-        // 自动搜索
+        // 常用搜索
+        findDom(()=>$('.searchLine'), dom=>{
+            window.__other = '内黄'
+            window.__f = function (e={target:{innerText:''}}){
+                window.__other = e.target.innerText.trim()
+                findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'))
+            }
+            dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 范县 </span>');
+            dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 清丰 </span>');
+            dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 滑县 </span>');
+            dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 莘县 </span>');
+            dom.insertAdjacentHTML('afterbegin', '<span onclick="__f()"> 全部 </span>');
+            //dom.insertAdjacentHTML('afterbegin', '<style>table :is(td,col,th):is(:nth-child(4),:nth-child(6)){display:none}</style>');
+        })
+
+
+        // 输入框输入 自动搜索
         findDom(()=>$('[placeholder="关键字查询"]'), dom=>{
             dom.oninput = ()=>{
                 findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'))
@@ -57,9 +72,11 @@ async function main() {
 
         // 搜索结果着色
         findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'), dom=>{
-            dom.onclick= ()=>setTimeout(()=>{
-                findDom(()=>$$('.cell'), doms=>doms.forEach(dom=>{if(dom.innerText==='玉米' || dom.innerText.includes('第三')){dom.style.color="red"}}))
-            }, 500)
+            dom.onclick= ()=>{
+                setTimeout(()=>{
+                    findDom(()=>$$('.cell'), doms=>doms.forEach(dom=>{if(dom.innerText==='玉米' || dom.innerText.includes('第三')){dom.style.color="red"}}))
+                }, 500)
+            }
         })
 
         findDom(()=>$('[placeholder="状态"]'))
@@ -72,31 +89,96 @@ async function main() {
     }
 
     if(isHash('#/contractMsg/sendTolistDetail')){
-        findDom(()=>$$('button span').find(dom=>dom.innerText === '新增预约'))
-        findDom(()=>$('[for="isShowQualityTest"] ~ div label:nth-of-type(2)'))
+        findDom(()=>$$('button span').find(dom=>dom.innerText === '新增预约'), dom=>{
+            dom.onclick = ()=>{
+                // 质检
+                findDom(()=>$('[for="isShowQualityTest"] ~ div label:nth-of-type(2)'))
 
-        findDom(()=>$("[placeholder='选择日期'] + span i"))
-        findDom(()=>$$('.el-picker-panel__content .available span').find(dom=>dom.innerText === new Date().toLocaleDateString().split('/').at(-1)))
+                // 日期
+                findDom(()=>$("[placeholder='选择日期'] + span i"))
+                findDom(()=>$$('.el-picker-panel__content .available span').find(dom=>dom.innerText === new Date().toLocaleDateString().split('/').at(-1)))
 
 
-        findDom(()=>$("form thead th:nth-last-child(2)"), async dom=>{
+                // 目的地
+                findDom(()=>$("form thead th:nth-last-child(2)"), async dom=>{
+                    window._select = async function select(q,w,e){
+                        await findDom(()=>$$('[placeholder="请选择"]').at(-1))
+                        await findDom(()=>$$('li span').find(dom=>dom.innerText === q))
+                        await findDom(()=>$$('li span').find(dom=>dom.innerText === w))
+                        await findDom(()=>$$('li span').find(dom=>dom.innerText === e))
+                    }
+                    _select('河北省', '邯郸市', '大名县')
 
-            window._select = async function select(q,w,e){
-                await findDom(()=>$$('[placeholder="请选择"]').at(-1))
-                await findDom(()=>$$('li span').find(dom=>dom.innerText === q))
-                await findDom(()=>$$('li span').find(dom=>dom.innerText === w))
-                await findDom(()=>$$('li span').find(dom=>dom.innerText === e))
+                    dom.innerHTML = `
+<div>
+<span onclick="_select('河北省', '邯郸市', event.target.innerText)">邯郸县</span>
+<span onclick="_select('河南省', '濮阳市', event.target.innerText)">濮阳县</span>
+</div>`
+                })
+            }
+            dom.click()
+        })
+
+
+        function sleep(t=3000) {
+            return new Promise(q=>setTimeout(q, t))
+        }
+        window.add = async (txt)=>{
+            const 车牌 = txt.match(/[冀豫].*/)?.[0]?.replaceAll(' ','')
+            const 司机 = txt.match(/姓名[:：]?\s*([\u4e00-\u9fa5]+)/)?.[1];
+            const 身份证 = txt.match(/身份证[号]?[:：]?(\d{17}[\dXx])/)?.[1];
+            const 手机 = txt.match( /(?:手机|电话)[号]?[:：]?(.*)/)?.[1]
+            const 吨数 = txt.match( /(?:吨数|净重|重量)[:：]?(.*)/)?.[1]?.trim()
+
+            if(车牌?.length !== 7) console.error({车牌})
+            if(司机?.length >= 4) console.error({司机})
+            if(身份证?.length !== 18) console.error({身份证})
+            if(手机?.length !== 11) console.error({手机})
+
+            const supplierName = JSON.parse(localStorage.USERINFOALL).name
+
+            await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
+                supplierName,
+                carNum: 车牌,
+                "drivingLicense": "",
+                "isShow": 3,
+                "operateLicense": "",
+                "fileList": [],
+                "riceAuctionFlag": "2",
+                "type": "车辆"
+            })
+
+            await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateDriver", {
+                supplierName,
+                "driverName": 司机,
+                "driverIdentityCard": 身份证,
+                "driverPhone": 手机,
+                "driverLicense": "",
+                "fileList": [],
+                "riceAuctionFlag": "2"
+            })
+
+            await 填充车牌司机($('[for="vehicleLicensePlate"]+div input'), 车牌)
+            await 填充车牌司机($('[for="driverName"]+div input'), 司机)
+
+
+            if(吨数){
+                $('[placeholder="发运数量"]').value = 吨数
+                await sleep(100)
+                $('[placeholder="发运数量"]').dispatchEvent(new Event('change'))
             }
 
-            _select('河北省', '邯郸市', '大名县')
+            async function 填充车牌司机(dom, val) {
+                dom.dispatchEvent(new Event('focus'))
+                await sleep(100)
+                dom.value = val
+                await sleep(100)
+                dom.dispatchEvent(new Event('input'))
+                await sleep(100)
 
-            dom.innerHTML = `
-<div>
-<span onclick="_select('河北省', '邯郸市', event.target.innerText)">大名县</span>
-<span onclick="_select('河南省', '濮阳市', event.target.innerText)">清丰县</span>
-</div>`
-
-        })
+                return findDom(()=>$$('li span').find(e=>e.innerText.includes(val)))
+            }
+        }
     }
 }
 
@@ -125,51 +207,6 @@ const post = window.post = (url,o)=>fetch(url, {
     "body": JSON.stringify(o),
     "method": "POST",
 });
-
-
-
-window.add = (txt)=>{
-    const 车牌 = txt.match(/[冀豫].*/)?.[0]?.replaceAll(' ','')
-    const 司机 = txt.match(/姓名[:：]?\s*([\u4e00-\u9fa5]+)/)?.[1];
-    const 身份证 = txt.match(/身份证[号]?[:：]?(\d{17}[\dXx])/)?.[1];
-    const 手机 = txt.match( /(?:手机|电话)[号]?[:：]?(.*)/)?.[1]
-
-    if(车牌?.length !== 7) console.error({车牌})
-    if(司机?.length >= 4) console.error({司机})
-    if(身份证?.length !== 18) console.error({身份证})
-    if(手机?.length !== 11) console.error({手机})
-
-    console.log({
-        车牌,
-        司机,
-        身份证,
-        手机
-    })
-
-
-    const supplierName = JSON.parse(localStorage.USERINFOALL).name
-
-    post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
-        supplierName,
-        carNum: 车牌,
-        "drivingLicense": "",
-        "isShow": 3,
-        "operateLicense": "",
-        "fileList": [],
-        "riceAuctionFlag": "2",
-        "type": "车辆"
-    })
-
-    post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateDriver", {
-        supplierName,
-        "driverName": 司机,
-        "driverIdentityCard": 身份证,
-        "driverPhone": 手机,
-        "driverLicense": "",
-        "fileList": [],
-        "riceAuctionFlag": "2"
-    })
-}
 
 
 const all = {
