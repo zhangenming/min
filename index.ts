@@ -8,7 +8,7 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=imuyuan.com
 // @grant        none
 // ==/UserScript==
-
+"use strict"
 window.$$ = s=>[...document.querySelectorAll(s)];
 window.$ = s=>$$(s)[0];
 
@@ -47,13 +47,18 @@ async function main() {
 
 
     if(isHash('#/contractMsg/sendTolist')){
+        window.__f = async function (e={target:{innerText:''}}){
+            await findDom(()=>$('[placeholder="关键字查询"]'), dom=>{
+                dom.value = e.target.innerText.trim()
+                dom.dispatchEvent(new Event('input'))
+            })
+            await findDom(()=>$('[placeholder="状态"]'))
+            await findDom(()=>$$('li span').find(dom=>dom.innerText === '运输中'))
+            findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'))
+        }
+
         // 常用搜索
         findDom(()=>$('.searchLine'), dom=>{
-            window.__other = '内黄'
-            window.__f = function (e={target:{innerText:''}}){
-                window.__other = e.target.innerText.trim()
-                findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'))
-            }
             dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 范县 </span>');
             dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 清丰 </span>');
             dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 滑县 </span>');
@@ -70,18 +75,17 @@ async function main() {
             }
         })
 
-        // 搜索结果着色
-        findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'), dom=>{
+
+        findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'), async dom=>{
             dom.onclick= ()=>{
+                // 搜索结果着色
                 setTimeout(()=>{
                     findDom(()=>$$('.cell'), doms=>doms.forEach(dom=>{if(dom.innerText==='玉米' || dom.innerText.includes('第三')){dom.style.color="red"}}))
                 }, 500)
             }
+            __f({target:{innerText:'内黄'}})
         })
 
-        findDom(()=>$('[placeholder="状态"]'))
-        findDom(()=>$$('li span').find(dom=>dom.innerText === '运输中'))
-        findDom(()=>$$('button span').find(dom=>dom.innerText === '搜索'))
 
 
         findDom(()=>$('.searchBox+div'), dom=>dom.style.height="600px")
@@ -128,12 +132,13 @@ async function main() {
             const 司机 = txt.match(/姓名[:：]?\s*([\u4e00-\u9fa5]+)/)?.[1];
             const 身份证 = txt.match(/身份证[号]?[:：]?(\d{17}[\dXx])/)?.[1];
             const 手机 = txt.match( /(?:手机|电话)[号]?[:：]?(.*)/)?.[1]
-            const 吨数 = txt.match( /(?:吨数|净重|重量)[:：]?(.*)/)?.[1]?.trim()
+            const 吨数 = txt.match( /(?:吨数|净重|重量|装车数量)[:：]?(.*)/)?.[1]?.trim()?.replaceAll('吨','')
 
             if(车牌?.length !== 7) console.error({车牌})
             if(司机?.length >= 4) console.error({司机})
             if(身份证?.length !== 18) console.error({身份证})
             if(手机?.length !== 11) console.error({手机})
+            console.log({车牌,司机,身份证,手机,吨数})
 
             const supplierName = JSON.parse(localStorage.USERINFOALL).name
 
@@ -197,8 +202,6 @@ async function findDom(fn, fn2 = dom=>dom.click()){
     }, 100)
     return promise
 }
-
-
 const post = window.post = (url,o)=>fetch(url, {
     "headers": {
         "authorization": localStorage.getItem("user-token"),
@@ -207,81 +210,112 @@ const post = window.post = (url,o)=>fetch(url, {
     "body": JSON.stringify(o),
     "method": "POST",
 });
+localStorage.clear = ()=>{
+    Object.keys(localStorage).filter(e=>!e.startsWith('__')).forEach(k=>localStorage.removeItem(k))
+}
 
 
 const all = {
     "玉米": {
         "豫北区域": {
-            "清丰二厂": "todo清丰第二仓库",
-            "范县二厂": "todo范县第二仓库",
-            "内黄三厂": "todo内黄第三仓库",
-            "内黄二厂": "todo内黄第二仓库",
-            "内黄": "todo内黄仓库",
-            "滑县": "todo滑县仓库",
-            "滑县三厂": "todo滑县第三仓库"
+            "清丰二厂": "清丰第二仓库",
+            "范县二厂": "范县第二仓库",
+            "内黄三厂": "内黄第三仓库",
+            "内黄二厂": "内黄第二仓库",
+            "内黄": "内黄仓库",
+            "滑县": "滑县仓库",
+            "滑县三厂": "滑县第三仓库"
         },
         "山东及聊城区域": {
-            "莘县二厂": "todo莘县第二仓库",
-            "莘县三厂": "todo莘县第三仓库",
-            "馆陶": "todo馆陶仓库",
-            "临邑": "todo临邑仓库",
-            "东明": "todo东明仓库",
-            "曹县": "todo曹县仓库",
-            "曹县二厂": "todo曹县第二仓库"
+            "莘县二厂": "莘县第二仓库",
+            "莘县三厂": "莘县第三仓库",
+            "馆陶": "馆陶仓库",
+            "临邑": "临邑仓库",
+            "东明": "东明仓库",
+            "曹县": "曹县仓库",
+            "曹县二厂": "曹县第二仓库"
         },
         "河北区域": {
-            "新河": "todo新河仓库",
-            "冀州": "todo冀州第二仓库",
-            "广宗": "todo广宗仓库",
-            "宁晋": "todo宁晋第二仓库",
-            "景县": "todo景县第二仓库",
-            "房山": "todo房山第二仓库"
+            "新河": "新河仓库",
+            "冀州": "冀州第二仓库",
+            "广宗": "广宗仓库",
+            "宁晋": "宁晋第二仓库",
+            "景县": "景县第二仓库",
+            "房山": "房山第二仓库"
         }
     },
     "小麦": {
         "卸车都快 豫北区域": {
-            "内黄大厂": "todo内黄仓库",
-            "内黄三厂": "todo内黄第三仓库",
-            "内黄二厂": "todo内黄第二仓库",
-            "馆陶": "todo馆陶仓库",
-            "范县": "todo范县第二仓库",
-            "清丰": "todo清丰第二仓库",
-            "滑县三厂": "todo滑县第三仓库",
-            "滑县大厂": "todo滑县仓库"
+            "内黄大厂": "内黄仓库",
+            "内黄三厂": "内黄第三仓库",
+            "内黄二厂": "内黄第二仓库",
+            "馆陶": "馆陶仓库",
+            "范县": "范县第二仓库",
+            "清丰": "清丰第二仓库",
+            "滑县三厂": "滑县第三仓库",
+            "滑县大厂": "滑县仓库"
         },
         "山东及聊城区域": {
-            "东明": "todo东明仓库",
-            "曹县": "todo曹县仓库",
-            "曹县二厂": "todo曹县第二仓库",
-            "莘县二厂": "todo莘县第二仓库",
-            "莘县三厂": "todo莘县第三仓库"
+            "东明": "东明仓库",
+            "曹县": "曹县仓库",
+            "曹县二厂": "曹县第二仓库",
+            "莘县二厂": "莘县第二仓库",
+            "莘县三厂": "莘县第三仓库"
         },
         "河北区域": {
-            "新河": "todo新河仓库",
-            "冀州": "todo冀州第二仓库",
-            "广宗": "todo广宗仓库"
+            "新河": "新河仓库",
+            "冀州": "冀州第二仓库",
+            "广宗": "广宗仓库"
         }
     }
 }
 
-Object.defineProperty(window, '每日价格', {get(){
+async function get每日价格(){
     const get = (product,areaName)=>post("https://scm.imuyuan.com/api/supply_chain/bidding/myAnnouncement/getAreaPurchaseList",{
         product,
         areaName,
     }).then(e=>e.json()).then(e=>e.data.rows[0].price)
 
-    for(const 玉米小麦 in all){
-        const 玉米小麦v = all[玉米小麦]
+    const result = JSON.parse(JSON.stringify(all))
+
+    for(const 玉米小麦 in result){
+        const 玉米小麦v = result[玉米小麦]
         for(const 区域 in 玉米小麦v){
             const 区域v = 玉米小麦v[区域]
             for(const 厂 in 区域v){
-                区域v[厂].startsWith?.('todo') && get(玉米小麦, 区域v[厂].slice(4)).then((v)=>{
-                    区域v[厂] = v
-                })
+                const v = await get(玉米小麦, 区域v[厂])
+                const 上次价格 = JSON.parse(localStorage.__上次价格)
+                const 上次价格v = 上次价格[玉米小麦][区域][厂]
+                区域v[厂] = v
+                if(v > 上次价格v) 区域v[厂] = `${v} (+${v - 上次价格v})`
+                if(v < 上次价格v) 区域v[厂] = `${v} (${v - 上次价格v})`
             }
         }
     }
+    localStorage.__上次价格 = JSON.stringify(result)
+    return JSON.stringify(result,null,4).replaceAll(/[{}:,"]/g,'')
+}
 
-    return all
+
+Object.defineProperty(window, '每日价格', {async get(){
+    const v = await get每日价格()
+    console.log(v)
+    return v
 }})
+
+
+// 不是真正的轮询
+setInterval(async ()=>{
+    const v = await get每日价格()
+    //console.clear()
+    if(v.includes('+') || v.includes('-')){
+        console.log('轮询 发现价格差异', v)
+        const t = new Date().toLocaleString()
+        localStorage[`__${t}`] = v
+    }else{
+        console.log('轮询 未发现')
+    }
+}, 1000 * 60 * 30)
+
+
 
