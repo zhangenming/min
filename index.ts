@@ -4,7 +4,7 @@
 // @version      2025-05-11
 // @description  try to take over the world!
 // @author       You
-// @match        scm.imuyuan.com
+// @match        scm.imuyuan.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=imuyuan.com
 // @grant        none
 // ==/UserScript==
@@ -29,6 +29,30 @@ setInterval(()=>{
 function isHash(hash){
     return location.hash.split('?')[0] === hash
 }
+
+
+const supplierName = JSON.parse(localStorage.USERINFO)
+
+window.addc = async(carNum)=>{
+    return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
+        supplierName,
+        carNum,
+        "drivingLicense": "",
+        "isShow": 3,
+        "operateLicense": "",
+        "fileList": [],
+        "riceAuctionFlag": "2",
+        "type": "车辆"
+    })}
+
+window.addsj = async(driverName, driverPhone, driverIdentityCard)=>{
+    return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateDriver", {
+        supplierName,
+        driverName, driverPhone, driverIdentityCard,
+        "driverLicense": "",
+        "fileList": [],
+        "riceAuctionFlag": "2"
+    })}
 
 main()
 async function main() {
@@ -63,6 +87,7 @@ async function main() {
             dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 清丰 </span>');
             dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 滑县 </span>');
             dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 莘县 </span>');
+            dom.insertAdjacentHTML('afterbegin', '<span onclick="__f(event)"> 广宗 </span>');
             dom.insertAdjacentHTML('afterbegin', '<span onclick="__f()"> 全部 </span>');
             //dom.insertAdjacentHTML('afterbegin', '<style>table :is(td,col,th):is(:nth-child(4),:nth-child(6)){display:none}</style>');
         })
@@ -117,6 +142,7 @@ async function main() {
 <div>
 <span onclick="_select('河北省', '邯郸市', event.target.innerText)">邯郸县</span>
 <span onclick="_select('河南省', '濮阳市', event.target.innerText)">濮阳县</span>
+<span onclick="_select('河南省', '安阳市', event.target.innerText)">内黄县</span>
 </div>`
                 })
             }
@@ -129,39 +155,19 @@ async function main() {
         }
         window.add = async (txt)=>{
             const 车牌 = txt.match(/[冀豫].*/)?.[0]?.replaceAll(' ','')
-            const 司机 = txt.match(/姓名[:：]?\s*([\u4e00-\u9fa5]+)/)?.[1];
+            const 司机 = txt.match(/姓名[:：，]?\s*([\u4e00-\u9fa5]+)/)?.[1];
             const 身份证 = txt.match(/身份证[号]?[:：]?(\d{17}[\dXx])/)?.[1];
             const 手机 = txt.match( /(?:手机|电话)[号]?[:：]?(.*)/)?.[1]
             const 吨数 = txt.match( /(?:吨数|净重|重量|装车数量)[:：]?(.*)/)?.[1]?.trim()?.replaceAll('吨','')
 
-            if(车牌?.length !== 7) console.error({车牌})
-            if(司机?.length >= 4) console.error({司机})
-            if(身份证?.length !== 18) console.error({身份证})
-            if(手机?.length !== 11) console.error({手机})
+            if(车牌?.length !== 7) return console.error({车牌})
+            if(司机?.length >= 4) return console.error({司机})
+            if(身份证?.length !== 18) return console.error({身份证})
+            if(手机?.length !== 11) return console.error({手机})
             console.log({车牌,司机,身份证,手机,吨数})
 
-            const supplierName = JSON.parse(localStorage.USERINFOALL).name
-
-            await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
-                supplierName,
-                carNum: 车牌,
-                "drivingLicense": "",
-                "isShow": 3,
-                "operateLicense": "",
-                "fileList": [],
-                "riceAuctionFlag": "2",
-                "type": "车辆"
-            })
-
-            await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateDriver", {
-                supplierName,
-                "driverName": 司机,
-                "driverIdentityCard": 身份证,
-                "driverPhone": 手机,
-                "driverLicense": "",
-                "fileList": [],
-                "riceAuctionFlag": "2"
-            })
+            await addc(车牌)
+            await addsj(司机, 手机, 身份证)
 
             await 填充车牌司机($('[for="vehicleLicensePlate"]+div input'), 车牌)
             await 填充车牌司机($('[for="driverName"]+div input'), 司机)
@@ -172,7 +178,6 @@ async function main() {
                 await sleep(100)
                 $('[placeholder="发运数量"]').dispatchEvent(new Event('change'))
             }
-
             async function 填充车牌司机(dom, val) {
                 dom.dispatchEvent(new Event('focus'))
                 await sleep(100)
@@ -181,23 +186,79 @@ async function main() {
                 dom.dispatchEvent(new Event('input'))
                 await sleep(100)
 
-                return findDom(()=>$$('li span').find(e=>e.innerText.includes(val)))
+                return findSpanName(val)
             }
+
+
         }
     }
+
+    投标()
 }
 
 
-window.findDom = findDom
-async function findDom(fn, fn2 = dom=>dom.click()){
+async function 投标(){
+    if(isHash('#/bid/material') || isHash('#/bid')){
+        findDom(()=>$('[placeholder="输入区域"]'), dom=>{
+            input(dom, '豫北')
+            $('button.searchBtn').click()
+        })
+    }
+
+    if(isHash('#/bid/biddingDetail') || isHash('#/bid/materialDetails')){
+        findSpanName('我要报价', dom=>{
+            dom.onclick = (e)=>{
+                e.stopPropagation()
+                location.href = location.href.replace('biddingDetail', 'combinedTradeQuotation')
+                location.href = location.href.replace('materialDetails', 'combinedTradeQuotation')
+            }
+        })
+    }
+
+    if(isHash('#/bid/combinedTradeQuotation')){
+        findDom('.el-table__body-wrapper [placeholder="请输入关键词查询"]', dom=>填充车牌司机(dom, '河北省邯郸市大名县仓库'))
+    }
+}
+
+function sleep(t){
+    return new Promise(s=>setTimeout(s, t))
+}
+window.sleep=sleep
+
+async function findDom(fn_or_str, done = dom=>dom.click()){
     const {promise, resolve} = Promise.withResolvers()
     const timer = setInterval(()=>{
-        const result = fn()
+        const dom = typeof fn_or_str === 'function' ? fn_or_str() : $(fn_or_str)
+        if(dom){
+            resolve(dom)
+            clearInterval(timer)
+            done(dom)
+        }
+    }, 100)
+    return promise
+}
+function findSpanName(name, done = dom=>dom.click()){
+    const {promise, resolve} = Promise.withResolvers()
+    const timer = setInterval(()=>{
+        const result = $$('span').find(e=>e.innerText===name||e.innerText.includes(name+'('))
         if(result){
+            done(result)
             resolve(result)
             clearInterval(timer)
-            if(fn2) fn2(result)
-        }else{
+        }
+    }, 100)
+    return promise
+}
+window.findSpanName = findSpanName
+window.findDivName = findDivName
+function findDivName(name, done = dom=>dom.click()){
+    const {promise, resolve} = Promise.withResolvers()
+    const timer = setInterval(()=>{
+        const result = $$('div').find(e=>e.innerText===name||e.innerText.includes(name+'('))
+        if(result){
+            done(result)
+            resolve(result)
+            clearInterval(timer)
         }
     }, 100)
     return promise
@@ -209,13 +270,40 @@ const post = window.post = (url,o)=>fetch(url, {
     },
     "body": JSON.stringify(o),
     "method": "POST",
-});
+}).then(e=>e.json()).then(e=>e.data);
 localStorage.clear = ()=>{
     Object.keys(localStorage).filter(e=>!e.startsWith('__')).forEach(k=>localStorage.removeItem(k))
 }
 
 
 const all = {
+    "小麦": {
+        "豫北区域": {
+            "内黄大厂": "内黄仓库",
+            "内黄三厂": "内黄第三仓库",
+            "内黄二厂": "内黄第二仓库",
+            "范县": "范县第二仓库",
+            "清丰": "清丰第二仓库",
+            "滑县三厂": "滑县第三仓库",
+            "滑县大厂": "滑县仓库"
+        },
+        "山东及聊城区域": {
+            "东明": "东明仓库",
+            "曹县": "曹县仓库",
+            "曹县二厂": "曹县第二仓库",
+            "馆陶": "馆陶仓库",
+            "莘县二厂": "莘县第二仓库",
+            "莘县三厂": "莘县第三仓库"
+        },
+        "河北区域": {
+            "新河": "新河仓库",
+            "冀州": "冀州第二仓库",
+            "广宗": "广宗仓库",
+            "宁晋": "宁晋第二仓库",
+            "景县": "景县第二仓库",
+            "房山": "房山第二仓库"
+        }
+    },
     "玉米": {
         "豫北区域": {
             "清丰二厂": "清丰第二仓库",
@@ -244,37 +332,13 @@ const all = {
             "房山": "房山第二仓库"
         }
     },
-    "小麦": {
-        "卸车都快 豫北区域": {
-            "内黄大厂": "内黄仓库",
-            "内黄三厂": "内黄第三仓库",
-            "内黄二厂": "内黄第二仓库",
-            "馆陶": "馆陶仓库",
-            "范县": "范县第二仓库",
-            "清丰": "清丰第二仓库",
-            "滑县三厂": "滑县第三仓库",
-            "滑县大厂": "滑县仓库"
-        },
-        "山东及聊城区域": {
-            "东明": "东明仓库",
-            "曹县": "曹县仓库",
-            "曹县二厂": "曹县第二仓库",
-            "莘县二厂": "莘县第二仓库",
-            "莘县三厂": "莘县第三仓库"
-        },
-        "河北区域": {
-            "新河": "新河仓库",
-            "冀州": "冀州第二仓库",
-            "广宗": "广宗仓库"
-        }
-    }
 }
 
 async function get每日价格(){
     const get = (product,areaName)=>post("https://scm.imuyuan.com/api/supply_chain/bidding/myAnnouncement/getAreaPurchaseList",{
         product,
         areaName,
-    }).then(e=>e.json()).then(e=>e.data.rows[0].price)
+    }).then(e=>e.rows[0]?.price || '无')
 
     const result = JSON.parse(JSON.stringify(all))
 
@@ -284,11 +348,13 @@ async function get每日价格(){
             const 区域v = 玉米小麦v[区域]
             for(const 厂 in 区域v){
                 const v = await get(玉米小麦, 区域v[厂])
-                const 上次价格 = JSON.parse(localStorage.__上次价格)
-                const 上次价格v = 上次价格[玉米小麦][区域][厂]
                 区域v[厂] = v
-                if(v > 上次价格v) 区域v[厂] = `${v} (+${v - 上次价格v})`
-                if(v < 上次价格v) 区域v[厂] = `${v} (${v - 上次价格v})`
+                const 上次价格 = JSON.parse(localStorage.__上次价格 || null)
+                if(上次价格){
+                    const 上次价格v = 上次价格[玉米小麦][区域][厂]
+                    if(v > 上次价格v) 区域v[厂] = `${v} (涨${v - 上次价格v})`
+                    if(v < 上次价格v) 区域v[厂] = `${v} (落${v - 上次价格v})`
+                }
             }
         }
     }
@@ -315,7 +381,35 @@ setInterval(async ()=>{
     }else{
         console.log('轮询 未发现')
     }
-}, 1000 * 60 * 30)
+}, 1000 * 60 * 60 * 2)
 
 
+window.查看哪个公司可以挂牌 = async function 查看哪个公司可以挂牌(产品){
+    const 所有公司  = `南阳飒影商贸有限公司
+安徽程博粮食贸易有限公司
+安阳市安粮农业有限责任公司
+尉氏鑫茂粮油购销有限公司
+河南世通谷物有限公司
+河南月俊粮油有限公司
+河南粮投粮油储备有限公司
+河南郑粮商贸有限公司
+清丰县天源粮油购销有限公司
+葫芦岛盈瑞粮油有限公司`.split('\n')
+
+    const result = await Promise.all(所有公司.map(supplierName=>post('https://scm.imuyuan.com/api/supply_chain/deliver/myDeliverNotification/getPageListBySupplier', {
+        "page": 1,
+        "limit": 20,
+        "isDelete": 2,
+        "other": "新河",
+        "status": "",
+        supplierName
+    }).then(data=>[supplierName, data.rows.filter(e=>e.status!==3 && e.materialName === 产品)])))
+
+    return Object.fromEntries(result.filter(([k,v])=>v.length))
+}
+
+function input(dom, val){
+    dom.value = val
+    dom.dispatchEvent(new Event('input'))
+}
 
