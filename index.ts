@@ -31,9 +31,11 @@ function isHash(hash){
 }
 
 
-const supplierName = JSON.parse(localStorage.USERINFO)
+const supplierName = JSON.parse(localStorage.USERINFO).name
 
 window.addc = async(carNum)=>{
+    const {total} = await post('https://scm.imuyuan.com/api/supply_chain/supplier/door/getCarPageList', {supplierName,carNum})
+    if(total)return
     return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
         supplierName,
         carNum,
