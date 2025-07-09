@@ -26,15 +26,20 @@ setInterval(()=>{
     }
 }, 500)
 
-function isHash(hash){
-    return location.hash.split('?')[0] === hash
+function isHash(hash, f=()=>{}){
+    const x = location.hash.split('?')[0] === hash
+    if(x)f()
+    return x
 }
 
 
 const supplierName = JSON.parse(localStorage.USERINFO).name
 
-window.addc = async(carNum)=>{
-    const {total} = await post('https://scm.imuyuan.com/api/supply_chain/supplier/door/getCarPageList', {supplierName,carNum})
+window.addc = addc
+window.addsj = addsj
+
+async function addc (carNum){
+    const {total} = (await post('https://scm.imuyuan.com/api/supply_chain/supplier/door/getCarPageList', {supplierName,carNum}))
     if(total)return
     return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
         supplierName,
@@ -47,7 +52,7 @@ window.addc = async(carNum)=>{
         "type": "车辆"
     })}
 
-window.addsj = async(driverName, driverPhone, driverIdentityCard)=>{
+async function addsj(driverName, driverPhone, driverIdentityCard){
     return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateDriver", {
         supplierName,
         driverName, driverPhone, driverIdentityCard,
@@ -151,7 +156,6 @@ async function main() {
             dom.click()
         })
 
-
         function sleep(t=3000) {
             return new Promise(q=>setTimeout(q, t))
         }
@@ -195,9 +199,47 @@ async function main() {
         }
     }
 
-    投标()
-}
 
+    isHash('#/settlement/grain', 下载照片)
+}
+async function 下载照片(){
+    await findDivName('已结算磅单')
+
+
+    $$('.searchItem input').forEach(dom=>dom.oninput = ()=>{
+        findSpanName('搜索')
+    })
+
+
+    // 只生效一次
+    findSpanName('下 载 ', dom=>{
+        dom.onclick = ()=>{
+            setTimeout(()=>{
+                findSpanName('关 闭')
+            }, 500)
+        }
+    })
+
+
+    /*
+    `20250630093119
+20250627113323`.split('\n').forEach((val, i)=>{
+setTimeout(async()=>{
+        $('[placeholder="买方/车牌号/合同号/磅单号"]').value = val
+        await sleep(100)
+        $('[placeholder="买方/车牌号/合同号/磅单号"]').dispatchEvent(new Event('input'))
+
+        await findSpanName('搜索')
+        await sleep(1500)
+        await findSpanName('电子磅单')
+        await sleep(1500)
+        await findSpanName('下 载')
+        await sleep(200)
+        await findSpanName('关 闭')
+}, i*3500)
+})
+*/
+}
 
 async function 投标(){
     if(isHash('#/bid/material') || isHash('#/bid')){
