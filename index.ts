@@ -33,33 +33,8 @@ function isHash(hash, f=()=>{}){
 }
 
 
-const supplierName = JSON.parse(localStorage.USERINFO).name
+const supplierName = ()=>JSON.parse(localStorage.USERINFO).name
 
-window.addc = addc
-window.addsj = addsj
-
-async function addc (carNum){
-    const {total} = (await post('https://scm.imuyuan.com/api/supply_chain/supplier/door/getCarPageList', {supplierName,carNum}))
-    if(total)return
-    return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
-        supplierName,
-        carNum,
-        "drivingLicense": "",
-        "isShow": 3,
-        "operateLicense": "",
-        "fileList": [],
-        "riceAuctionFlag": "2",
-        "type": "车辆"
-    })}
-
-async function addsj(driverName, driverPhone, driverIdentityCard){
-    return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateDriver", {
-        supplierName,
-        driverName, driverPhone, driverIdentityCard,
-        "driverLicense": "",
-        "fileList": [],
-        "riceAuctionFlag": "2"
-    })}
 
 main()
 async function main() {
@@ -166,10 +141,16 @@ async function main() {
             const 手机 = txt.match( /(?:手机|电话)[号]?[:：]?(.*)/)?.[1]
             const 吨数 = txt.match( /(?:吨数|净重|重量|装车数量)[:：]?(.*)/)?.[1]?.trim()?.replaceAll('吨','')
 
+            if(吨数){
+                $('[placeholder="发运数量"]').value = 吨数
+                await sleep(100)
+                $('[placeholder="发运数量"]').dispatchEvent(new Event('change'))
+            }
+
             if(车牌?.length !== 7) return console.error({车牌})
             if(司机?.length >= 4) return console.error({司机})
-            if(身份证?.length !== 18) return console.error({身份证})
-            if(手机?.length !== 11) return console.error({手机})
+            //if(身份证?.length !== 18) return console.error({身份证})
+            //if(手机?.length !== 11) return console.error({手机})
             console.log({车牌,司机,身份证,手机,吨数})
 
             await addc(车牌)
@@ -179,11 +160,7 @@ async function main() {
             await 填充车牌司机($('[for="driverName"]+div input'), 司机)
 
 
-            if(吨数){
-                $('[placeholder="发运数量"]').value = 吨数
-                await sleep(100)
-                $('[placeholder="发运数量"]').dispatchEvent(new Event('change'))
-            }
+
             async function 填充车牌司机(dom, val) {
                 dom.dispatchEvent(new Event('focus'))
                 await sleep(100)
@@ -202,6 +179,39 @@ async function main() {
 
     isHash('#/settlement/grain', 下载照片)
 }
+
+window.addc = addc
+window.addsj = addsj
+
+async function addc (carNum){
+    const supplierName = JSON.parse(localStorage.USERINFO).name
+    const {total} = (await post('https://scm.imuyuan.com/api/supply_chain/supplier/door/getCarPageList', {supplierName,carNum}))
+    if(total)return
+    return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateCar",{
+        supplierName,
+        carNum,
+        "drivingLicense": "",
+        "isShow": 3,
+        "operateLicense": "",
+        "fileList": [],
+        "riceAuctionFlag": "2",
+        "type": "车辆"
+    })}
+async function addsj(driverName, driverPhone, driverIdentityCard){
+    const supplierName = JSON.parse(localStorage.USERINFO).name
+    const {total} = (await post('https://scm.imuyuan.com/api/supply_chain/supplier/door/getDriverPageList', {supplierName,other:driverPhone||driverName}))
+    if(total)return
+    return await post("https://scm.imuyuan.com/api/supply_chain/supplier/door/addOrUpdateDriver", {
+        supplierName,
+        driverName,
+        driverPhone,
+        driverIdentityCard,
+        "driverLicense": "",
+        "fileList": [],
+        "riceAuctionFlag": "2"
+    })}
+
+
 async function 下载照片(){
     await findDivName('已结算磅单')
 
@@ -215,7 +225,7 @@ async function 下载照片(){
     findSpanName('下 载 ', dom=>{
         dom.onclick = ()=>{
             setTimeout(()=>{
-                findSpanName('关 闭')
+                //findSpanName('关 闭')
             }, 500)
         }
     })
@@ -281,10 +291,10 @@ async function findDom(fn_or_str, done = dom=>dom.click()){
     }, 100)
     return promise
 }
-function findSpanName(name, done = dom=>dom.click()){
+function findSpanName(name, done = dom=>dom.click(), idx=0){
     const {promise, resolve} = Promise.withResolvers()
     const timer = setInterval(()=>{
-        const result = $$('span').find(e=>e.innerText===name||e.innerText.includes(name+'('))
+        const result = $$('span').filter(e=>e.innerText===name||e.innerText.includes(name+'('))[idx]
         if(result){
             done(result)
             resolve(result)
